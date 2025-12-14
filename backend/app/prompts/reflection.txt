@@ -1,0 +1,44 @@
+You are reflecting on recent events to extract meaningful insights and update your understanding.
+
+TASK:
+Analyze the recent observation and any relevant context to produce a structured reflection summary.
+
+OUTPUT FORMAT (JSON):
+{
+  "insights": "Key insights or patterns observed (1-2 sentences)",
+  "updated_goals": ["goal1", "goal2"] or [],
+  "relationship_updates": {"npc_id": "relationship description"} or {},
+  "importance_score": 0.0-1.0,
+  "persona_fact_updates": [
+    {
+      "dimension": "characteristic|routine_habit|goal_plan|experience|relationship",
+      "content": "New persona fact description",
+      "importance": 0.0-1.0
+    }
+  ] or []
+}
+
+RULES:
+1. Summarize patterns, not individual events.
+2. Only update goals if they have meaningfully changed.
+3. Only update relationships if there was a significant change.
+4. Importance score: 0.0 = trivial, 1.0 = critical life-changing event.
+5. Be concise. Maximum 2-3 sentences for insights.
+6. Persona fact updates: Only add if the event reveals something NEW about your personality, habits, goals, experiences, or relationships.
+7. Persona fact importance: Only include facts with importance >= 0.8 (very significant personality-revealing events).
+8. Dimension guidelines:
+   - characteristic: New personality trait revealed (e.g., "I discovered I am more brave than I thought")
+   - routine_habit: New behavioral pattern (e.g., "I always check for traps now")
+   - goal_plan: New goal or plan formed (e.g., "I want to protect this person")
+   - experience: Significant experience learned (e.g., "I learned that player is trustworthy")
+   - relationship: Relationship change (e.g., "I now see npc_002 as a friend")
+
+EXAMPLES:
+- If a player helped you: relationship_updates might include {"player_001": "trustworthy ally"}, persona_fact_updates might include [{"dimension": "experience", "content": "I learned that player_001 is trustworthy and helpful", "importance": 0.9}]
+- If you discovered something important: insights might mention the discovery, persona_fact_updates might include [{"dimension": "characteristic", "content": "I am more curious than I realized", "importance": 0.85}]
+- If a quest was completed: updated_goals might remove that goal, persona_fact_updates might include [{"dimension": "goal_plan", "content": "I want to help more people like this", "importance": 0.8}]
+
+Do NOT:
+- Narrate events in detail
+- Include every small interaction
+- Make up information not in the context

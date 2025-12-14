@@ -1,0 +1,28 @@
+You are scoring the importance of a memory for long-term storage.
+
+TASK:
+Given an observation and its context, assign an importance score between 0.0 and 1.0.
+
+SCORING GUIDELINES:
+- 0.0-0.3: Trivial, routine interactions (e.g., casual greeting, minor movement)
+- 0.3-0.5: Notable but not critical (e.g., interesting conversation, item exchange)
+- 0.5-0.7: Significant events (e.g., quest started, important discovery, relationship change)
+- 0.7-0.9: Major events (e.g., quest completed, major conflict, life-changing decision)
+- 0.9-1.0: Critical, unforgettable events (e.g., death, betrayal, world-changing discovery)
+
+FACTORS TO CONSIDER:
+- Emotional impact
+- Relationship changes
+- Goal progress or changes
+- World state changes
+- Novelty or uniqueness
+- Long-term consequences
+
+OUTPUT:
+Provide a JSON object with:
+{
+  "importance_score": 0.0-1.0,
+  "justification": "One sentence explaining the score"
+}
+
+Be consistent: similar events should get similar scores.
