@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { memoryApi } from '@/services/api';
 import type { EpisodicMemory } from '@/types';
 import { format } from 'date-fns';
-import { Clock, Star, Database, Zap, FileText } from 'lucide-react';
+import { Clock, Star, Database, Zap, FileText, Trash2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 
 type MemoryTab = 'short_term' | 'long_term' | 'all';
 
@@ -14,7 +15,7 @@ interface MemoryPanelProps {
   npcId: string | null;
 }
 
-function MemoryCard({ item }: { item: EpisodicMemory }) {
+function MemoryCard({ item, onDelete }: { item: EpisodicMemory; onDelete?: (id: string) => void }) {
   const sourceColors = {
     observation: 'bg-primary/20 text-primary',
     action: 'bg-success/20 text-success',
@@ -22,14 +23,28 @@ function MemoryCard({ item }: { item: EpisodicMemory }) {
   };
 
   return (
-    <div className="p-3 rounded-lg bg-secondary/50 border border-border/50 space-y-2 animate-fade-in">
-      <p className="text-sm leading-relaxed">{item.content}</p>
+    <div className="p-3 rounded-lg bg-secondary/50 border border-border/50 space-y-2 animate-fade-in group">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm leading-relaxed flex-1">{item.content}</p>
+        {onDelete && (
+          <button
+            onClick={() => {
+              if (confirm('Delete this memory?')) {
+                onDelete(item.memory_id);
+              }
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 text-destructive shrink-0"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+      </div>
       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
           {format(new Date(item.created_at), 'MMM d, HH:mm')}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" title={`Importance: ${(item.importance * 100).toFixed(0)}% (${item.importance >= 0.7 ? 'Long-term' : 'Short-term'})`}>
           <Star className="w-3 h-3" />
           {(item.importance * 100).toFixed(0)}%
         </div>
@@ -52,6 +67,7 @@ function MemoryCard({ item }: { item: EpisodicMemory }) {
 
 export function MemoryPanel({ npcId }: MemoryPanelProps) {
   const [activeTab, setActiveTab] = useState<MemoryTab>('short_term');
+  const queryClient = useQueryClient();
 
   const { data: shortTermMemories = [], isLoading: loadingShort } = useQuery({
     queryKey: ['memories', npcId, 'short_term'],
@@ -63,6 +79,20 @@ export function MemoryPanel({ npcId }: MemoryPanelProps) {
     queryKey: ['memories', npcId, 'long_term'],
     queryFn: () => npcId ? memoryApi.getRecent(npcId, 50, 'long_term') : [],
     enabled: !!npcId && (activeTab === 'long_term' || activeTab === 'all'),
+  });
+
+  const deleteMemoryMutation = useMutation({
+    mutationFn: (memoryId: string) => memoryApi.delete(npcId!, memoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memories', npcId] });
+    },
+  });
+
+  const deleteAllMemoriesMutation = useMutation({
+    mutationFn: (memoryType?: 'short_term' | 'long_term') => memoryApi.deleteByNpc(npcId!, memoryType),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memories', npcId] });
+    },
   });
 
   const filteredMemories =
@@ -119,10 +149,39 @@ export function MemoryPanel({ npcId }: MemoryPanelProps) {
 
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
         <div className="p-3 space-y-2">
+          {filteredMemories.length > 0 && (
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">
+                {filteredMemories.length} memor{filteredMemories.length !== 1 ? 'ies' : 'y'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-destructive hover:text-destructive"
+                onClick={() => {
+                  const memoryType = activeTab === 'all' ? undefined : activeTab;
+                  const typeLabel = memoryType || 'all';
+                  if (confirm(`Delete all ${typeLabel} memories?`)) {
+                    deleteAllMemoriesMutation.mutate(memoryType);
+                  }
+                }}
+                disabled={deleteAllMemoriesMutation.isPending}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Clear {activeTab === 'all' ? 'All' : activeTab === 'short_term' ? 'Short' : 'Long'}
+              </Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="text-center text-sm text-muted-foreground py-8">Loading...</div>
           ) : filteredMemories.length > 0 ? (
-            filteredMemories.map((item) => <MemoryCard key={item.memory_id} item={item} />)
+            filteredMemories.map((item) => (
+              <MemoryCard
+                key={item.memory_id}
+                item={item}
+                onDelete={(id) => deleteMemoryMutation.mutate(id)}
+              />
+            ))
           ) : (
             <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground py-8">
               <Database className="w-8 h-8 mb-2 opacity-50" />

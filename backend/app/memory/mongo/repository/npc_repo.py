@@ -19,6 +19,11 @@ class NPCRepository:
         npc_id = f"npc_{uuid.uuid4().hex[:8]}"
         now = datetime.utcnow()
         
+        # config가 없으면 기본값 사용
+        config_dict = None
+        if npc_data.config:
+            config_dict = npc_data.config.model_dump() if hasattr(npc_data.config, 'model_dump') else npc_data.config
+        
         npc_doc = {
             "npc_id": npc_id,
             "name": npc_data.name,
@@ -26,6 +31,7 @@ class NPCRepository:
             "persona_id": npc_data.persona_id,
             "world_id": npc_data.world_id,
             "current_state": npc_data.current_state,
+            "config": config_dict,
             "created_at": now,
             "updated_at": now
         }
@@ -81,3 +87,65 @@ class NPCRepository:
             npcs.append(NPC(**doc))
         
         return npcs
+    
+    @staticmethod
+    def delete_npc(npc_id: str) -> bool:
+        """NPC 삭제."""
+        collection = NPCRepository._get_collection()
+        result = collection.delete_one({"npc_id": npc_id})
+        return result.deleted_count > 0
+    
+    @staticmethod
+    def update_npc_config(npc_id: str, config: dict) -> Optional[NPC]:
+        """NPC config 업데이트."""
+        collection = NPCRepository._get_collection()
+        result = collection.update_one(
+            {"npc_id": npc_id},
+            {
+                "$set": {
+                    "config": config,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            return None
+        
+        return NPCRepository.get_npc_by_id(npc_id)
+    
+    @staticmethod
+    def update_npc(npc_id: str, updates: dict) -> Optional[NPC]:
+        """NPC 전체 업데이트 (config, current_state 등)."""
+        collection = NPCRepository._get_collection()
+        updates["updated_at"] = datetime.utcnow()
+        result = collection.update_one(
+            {"npc_id": npc_id},
+            {"$set": updates}
+        )
+        
+        if result.matched_count == 0:
+            return None
+        
+        return NPCRepository.get_npc_by_id(npc_id)
+    
+    @staticmethod
+    def get_npcs_by_world(world_id: str, limit: int = 100) -> list[NPC]:
+        """World ID로 NPC 목록 조회."""
+        collection = NPCRepository._get_collection()
+        docs = collection.find({"world_id": world_id}).limit(limit)
+        
+        npcs = []
+        for doc in docs:
+            if "_id" in doc:
+                del doc["_id"]
+            npcs.append(NPC(**doc))
+        
+        return npcs
+    
+    @staticmethod
+    def delete_npcs_by_world(world_id: str) -> int:
+        """World ID로 모든 NPC 삭제."""
+        collection = NPCRepository._get_collection()
+        result = collection.delete_many({"world_id": world_id})
+        return result.deleted_count

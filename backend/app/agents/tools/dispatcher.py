@@ -20,16 +20,47 @@ class ToolDispatcher:
         
         tool = tool_registry.get_tool(action.action_type)
         
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             result = tool.execute(action.arguments, context)
             
-            return ActionResult(
-                success=result.get("success", False),
+            # result가 딕셔너리인지 확인
+            if not isinstance(result, dict):
+                error_msg = f"Tool returned invalid result type: {type(result)}"
+                logger.error(f"Tool {action.action_type} - {error_msg}")
+                return ActionResult(
+                    success=False,
+                    action_type=action.action_type,
+                    effect={},
+                    error=error_msg
+                )
+            
+            success = result.get("success", False)
+            effect = result.get("effect", {})
+            error = result.get("error", "")
+            
+            # success가 False인 경우 에러 메시지 확실히 설정
+            if not success:
+                if not error:
+                    error = f"Tool {action.action_type} execution failed without error message. Result: {result}"
+                    logger.error(f"Tool {action.action_type} failed without error message. Result: {result}")
+                else:
+                    logger.error(f"Tool {action.action_type} failed: {error}. Arguments: {action.arguments}")
+            
+            action_result = ActionResult(
+                success=success,
                 action_type=action.action_type,
-                effect=result.get("effect", {}),
-                error=result.get("error", "")
+                effect=effect or {},
+                error=error
             )
+            
+            return action_result
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Tool execution error for {action.action_type}: {str(e)}", exc_info=True)
             return ActionResult(
                 success=False,
                 action_type=action.action_type,

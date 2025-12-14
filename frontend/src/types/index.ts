@@ -1,4 +1,11 @@
 
+export interface NPCConfig {
+  retrieval_top_k: number;
+  importance_threshold: number;
+  reflection_threshold: number;
+  max_facts_per_dimension: number;
+}
+
 export interface NPC {
   npc_id: string;
   name: string;
@@ -13,6 +20,7 @@ export interface NPC {
     status_flags?: string[];
     [key: string]: any;
   };
+  config?: NPCConfig;
   created_at: string;
   updated_at: string;
 }

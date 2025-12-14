@@ -4,6 +4,34 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 
+class NPCConfig(BaseModel):
+    """NPC별 설정 파라미터."""
+    retrieval_top_k: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="각 인덱스당 검색할 메모리 개수"
+    )
+    importance_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="장기 기억 전환 임계값"
+    )
+    reflection_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Reflection 트리거 임계값"
+    )
+    max_facts_per_dimension: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Dimension당 최대 fact 개수"
+    )
+
+
 class NPCBase(BaseModel):
     """Base NPC schema."""
     name: str = Field(..., description="NPC name")
@@ -13,6 +41,10 @@ class NPCBase(BaseModel):
     current_state: Dict[str, Any] = Field(
         default_factory=dict,
         description="Mutable current state (emotion, goal, location, hp, status flags)"
+    )
+    config: Optional[NPCConfig] = Field(
+        default_factory=NPCConfig,
+        description="NPC별 설정 파라미터"
     )
 
 

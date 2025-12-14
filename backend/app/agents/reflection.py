@@ -22,13 +22,17 @@ class ReflectionTrigger:
         relationship_changed: bool = False,
         quest_state_changed: bool = False,
         emotion_delta: float = 0.0,
-        explicit_request: bool = False
+        explicit_request: bool = False,
+        reflection_threshold: float = None
     ) -> bool:
         """reflection trigger 여부 결정."""
         if explicit_request:
             return True
         
-        if importance >= ReflectionTrigger.IMPORTANCE_THRESHOLD:
+        # reflection_threshold가 제공되면 사용, 아니면 기본값 사용
+        threshold = reflection_threshold if reflection_threshold is not None else ReflectionTrigger.IMPORTANCE_THRESHOLD
+        
+        if importance >= threshold:
             return True
         
         if relationship_changed:

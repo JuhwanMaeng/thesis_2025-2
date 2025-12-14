@@ -46,6 +46,20 @@ class WorldRepository:
         return WorldKnowledge(**doc)
     
     @staticmethod
+    def list_worlds(limit: int = 100) -> list[WorldKnowledge]:
+        """모든 World 목록 조회."""
+        collection = WorldRepository._get_collection()
+        docs = collection.find().limit(limit)
+        
+        worlds = []
+        for doc in docs:
+            if "_id" in doc:
+                del doc["_id"]
+            worlds.append(WorldKnowledge(**doc))
+        
+        return worlds
+    
+    @staticmethod
     def update_world(world_id: str, update_data: dict) -> Optional[WorldKnowledge]:
         """World knowledge 업데이트."""
         collection = WorldRepository._get_collection()
@@ -58,3 +72,10 @@ class WorldRepository:
             return None
         
         return WorldRepository.get_world_by_id(world_id)
+    
+    @staticmethod
+    def delete_world(world_id: str) -> bool:
+        """World 삭제."""
+        collection = WorldRepository._get_collection()
+        result = collection.delete_one({"world_id": world_id})
+        return result.deleted_count > 0

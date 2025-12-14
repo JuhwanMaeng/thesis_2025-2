@@ -20,7 +20,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   return (
     <form onSubmit={handleSubmit} className="p-4 border-t border-border bg-card">
-      <div className="flex items-end gap-2">
+      <div className="flex items-start gap-2">
         <div className="flex-1 relative">
           <textarea
             value={input}
@@ -42,6 +42,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           type="submit"
           disabled={!input.trim() || isLoading}
           size="icon"
+          className="h-[48px] w-[48px] shrink-0"
         >
           <Send className="w-4 h-4" />
         </Button>

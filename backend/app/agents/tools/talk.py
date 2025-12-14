@@ -1,6 +1,9 @@
 """Talk tool - 언어적 상호작용."""
+import logging
 from typing import Dict, Any
 from app.agents.tools.base import Tool
+
+logger = logging.getLogger(__name__)
 
 
 class TalkTool(Tool):
@@ -38,26 +41,41 @@ class TalkTool(Tool):
     
     def execute(self, arguments: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """Talk action 실행."""
-        target_id = arguments.get("target_id")
-        utterance = arguments.get("utterance")
-        tone = arguments.get("tone", "neutral")
-        
-        if not target_id or not utterance:
+        try:
+            target_id = arguments.get("target_id")
+            utterance = arguments.get("utterance")
+            tone = arguments.get("tone", "neutral")
+            
+            if not target_id or not utterance:
+                error_msg = f"Missing required arguments: target_id={target_id}, utterance={utterance}"
+                logger.error(f"TalkTool failed: {error_msg}")
+                return {
+                    "success": False,
+                    "action_type": "talk",
+                    "effect": {},
+                    "error": error_msg
+                }
+            
+            result = {
+                "success": True,
+                "action_type": "talk",
+                "effect": {
+                    "spoken": True,
+                    "target": target_id,
+                    "utterance": str(utterance),
+                    "tone": str(tone),
+                    "speaker": context.get("npc_id", "unknown")
+                }
+            }
+            
+            return result
+            
+        except Exception as e:
+            error_msg = f"TalkTool execution exception: {str(e)}"
+            logger.error(error_msg, exc_info=True)
             return {
                 "success": False,
                 "action_type": "talk",
                 "effect": {},
-                "error": "Missing required arguments: target_id and utterance"
+                "error": error_msg
             }
-        
-        return {
-            "success": True,
-            "action_type": "talk",
-            "effect": {
-                "spoken": True,
-                "target": target_id,
-                "utterance": utterance,
-                "tone": tone,
-                "speaker": context.get("npc_id", "unknown")
-            }
-        }

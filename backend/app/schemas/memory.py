@@ -38,7 +38,7 @@ class EpisodicMemory(BaseModel):
         default=0.3,
         ge=0.0,
         le=1.0,
-        description="Importance score (0.0-1.0). >= 0.7 promotes to long_term"
+        description="Importance score (0.0-1.0). >= 0.7 converts to long_term"
     )
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
     linked_entities: List[str] = Field(
@@ -75,7 +75,7 @@ class MemoryCreate(BaseModel):
         default=0.3,
         ge=0.0,
         le=1.0,
-        description="Importance score. If >= 0.7, will be promoted to long_term"
+        description="Importance score. If >= 0.7, will be converted to long_term"
     )
     tags: List[str] = Field(default_factory=list, description="Tags")
     linked_entities: List[str] = Field(default_factory=list, description="Linked entities")

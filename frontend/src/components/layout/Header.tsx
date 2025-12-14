@@ -1,9 +1,16 @@
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Wrench } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
-export function Header() {
+interface HeaderProps {
+  onToolsToggle: () => void;
+  showTools?: boolean;
+}
+
+export function Header({ onToolsToggle, showTools }: HeaderProps) {
   const [isDark, setIsDark] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -21,6 +28,14 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant={showTools ? 'default' : 'ghost'}
+          size="icon"
+          onClick={onToolsToggle}
+          title={onToolsToggle ? "Toggle Tools Panel" : "Open Tools"}
+        >
+          <Wrench className="w-4 h-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"

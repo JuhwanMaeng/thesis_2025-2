@@ -25,12 +25,17 @@ class TraceRepository:
             "turn_id": trace_data.turn_id,
             "observation": trace_data.observation,
             "retrieved_memories": trace_data.retrieved_memories,
+            "retrieval_query_text": trace_data.retrieval_query_text,
+            "retrieval_indices_searched": trace_data.retrieval_indices_searched,
+            "retrieval_vector_ids": trace_data.retrieval_vector_ids,
+            "retrieval_similarity_scores": trace_data.retrieval_similarity_scores,
             "persona_used": trace_data.persona_used,
             "world_used": trace_data.world_used,
             "llm_prompt_snapshot": trace_data.llm_prompt_snapshot,
             "llm_output_raw": trace_data.llm_output_raw,
             "chosen_action": trace_data.chosen_action,
             "tool_arguments": trace_data.tool_arguments,
+            "tool_execution_result": trace_data.tool_execution_result,
             "created_at": now
         }
         
@@ -80,3 +85,17 @@ class TraceRepository:
             traces.append(InferenceTrace(**doc))
         
         return traces
+    
+    @staticmethod
+    def delete_trace(trace_id: str) -> bool:
+        """Trace 삭제."""
+        collection = TraceRepository._get_collection()
+        result = collection.delete_one({"trace_id": trace_id})
+        return result.deleted_count > 0
+    
+    @staticmethod
+    def delete_traces_by_npc(npc_id: str) -> int:
+        """NPC의 모든 trace 삭제."""
+        collection = TraceRepository._get_collection()
+        result = collection.delete_many({"npc_id": npc_id})
+        return result.deleted_count

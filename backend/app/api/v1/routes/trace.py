@@ -30,3 +30,25 @@ async def get_trace(trace_id: str):
         raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
     
     return trace
+
+
+@router.delete("/trace/{trace_id}")
+async def delete_trace(trace_id: str):
+    """Inference trace 삭제."""
+    try:
+        success = TraceRepository.delete_trace(trace_id)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Trace {trace_id} not found")
+        return {"status": "deleted", "trace_id": trace_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete trace: {str(e)}")
+
+
+@router.delete("/npc/{npc_id}/traces")
+async def delete_traces_by_npc(npc_id: str):
+    """NPC의 모든 inference trace 삭제."""
+    try:
+        deleted_count = TraceRepository.delete_traces_by_npc(npc_id)
+        return {"status": "deleted", "npc_id": npc_id, "deleted_count": deleted_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete traces: {str(e)}")

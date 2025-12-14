@@ -132,7 +132,7 @@ class TurnOrchestrator:
         return "\n".join(parts) if parts else ""
     
     @staticmethod
-    def _build_persona_context(persona: Dict[str, Any], persona_id: str = None, npc_id: str = None) -> str:
+    def _build_persona_context(persona: Dict[str, Any], persona_id: str = None, npc_id: str = None, max_facts_per_dimension: int = None) -> str:
         """
         Persona 컨텍스트 빌드 (기존 PersonaProfile + PersonaFacts).
         
@@ -140,6 +140,7 @@ class TurnOrchestrator:
             persona: PersonaProfile 딕셔너리
             persona_id: Persona ID (PersonaFact 조회용)
             npc_id: NPC ID (PersonaFact 조회용, 선택사항)
+            max_facts_per_dimension: Dimension당 최대 fact 개수
         """
         parts = []
         parts.append(f"Name: {persona.get('name', 'Unknown')}")
@@ -168,7 +169,7 @@ class TurnOrchestrator:
         
         # PersonaFacts 추가 (dimension별 그룹화)
         if persona_id:
-            persona_fact_context = TurnOrchestrator._build_persona_fact_context(persona_id, npc_id)
+            persona_fact_context = TurnOrchestrator._build_persona_fact_context(persona_id, npc_id, max_facts_per_dimension)
             if persona_fact_context:
                 parts.append("\nPersona Facts:")
                 parts.append(persona_fact_context)
@@ -224,6 +225,29 @@ class TurnOrchestrator:
         if world is None:
             raise ValueError(f"World {npc.world_id} not found")
         
+        # NPC config 가져오기 (기본값 사용) - observation 저장 전에 필요
+        npc_config = npc.config if npc.config else None
+        if npc_config:
+            if isinstance(npc_config, dict):
+                from app.schemas.npc import NPCConfig
+                npc_config = NPCConfig(**npc_config)
+            retrieval_top_k = npc_config.retrieval_top_k
+            importance_threshold = npc_config.importance_threshold
+            reflection_threshold = npc_config.reflection_threshold
+            max_facts_per_dimension = npc_config.max_facts_per_dimension
+        else:
+            retrieval_top_k = 5
+            importance_threshold = 0.7
+            reflection_threshold = 0.7
+            max_facts_per_dimension = 3
+        
+        # 최근 대화 히스토리 가져오기 (observation 저장 전에 가져와서 현재 observation 제외)
+        recent_memories = MemoryRepository.get_recent_memories(npc_id, limit=10, memory_type="short_term")
+        recent_conversation = []
+        for mem in recent_memories:
+            if mem.source == "observation":
+                recent_conversation.append(mem.content)
+        
         # observation 저장 (단기 메모리)
         observation_summary = QueryBuilder.build_observation_summary(observation)
         memory_data = MemoryCreate(
@@ -233,18 +257,22 @@ class TurnOrchestrator:
             importance=0.3,
             tags=["observation"]
         )
-        observation_memory = MemoryRepository.insert_memory(memory_data)
+        observation_memory = MemoryRepository.insert_memory(memory_data, importance_threshold=importance_threshold)
         
-        # retrieval query 구성
+        # retrieval query 구성 (대화 히스토리 포함)
         npc_goal = npc.current_state.get("goal", "")
-        retrieval_query = QueryBuilder.build_retrieval_query(observation, npc_goal)
+        retrieval_query = QueryBuilder.build_retrieval_query(
+            observation, 
+            npc_goal=npc_goal,
+            recent_conversation=recent_conversation if recent_conversation else None
+        )
         
         # 벡터 메모리 검색 (observation 전달하여 dimension 추론)
         retriever = VectorRetriever()
         retrieval_result = retriever.retrieve_for_npc(
             npc_id, 
             retrieval_query, 
-            top_k_per_index=5,
+            top_k_per_index=retrieval_top_k,
             observation=observation
         )
         retrieved_memories = retrieval_result['retrieved_sources']
@@ -270,13 +298,14 @@ class TurnOrchestrator:
         relationship_changed = "relationship" in details or "relation" in str(details).lower()
         quest_state_changed = "quest" in str(details).lower() or observation.get("event_type") == "quest_completed"
         
-        # reflection trigger 결정
+        # reflection trigger 결정 (NPC config의 reflection_threshold 사용)
         should_reflect = ReflectionTrigger.should_reflect(
             importance=predicted_importance,
             relationship_changed=relationship_changed,
             quest_state_changed=quest_state_changed,
             emotion_delta=emotion_delta,
-            explicit_request=False
+            explicit_request=False,
+            reflection_threshold=reflection_threshold
         )
         
         # reflection 실행
@@ -307,7 +336,7 @@ class TurnOrchestrator:
                 importance=reflection['importance_score'],
                 tags=["reflection"]
             )
-            MemoryRepository.insert_memory(reflection_memory)
+            MemoryRepository.insert_memory(reflection_memory, importance_threshold=importance_threshold)
             
             # Update PersonaFacts from reflection
             persona_fact_updates = reflection.get('persona_fact_updates', [])
@@ -352,7 +381,8 @@ class TurnOrchestrator:
                 'constraints': persona.constraints
             },
             persona_id=npc.persona_id,
-            npc_id=npc_id
+            npc_id=npc_id,
+            max_facts_per_dimension=max_facts_per_dimension
         )
         
         world_context = TurnOrchestrator._build_world_context(
@@ -364,6 +394,13 @@ class TurnOrchestrator:
         
         memory_context = TurnOrchestrator._build_memory_context(retrieved_memories)
         
+        # 최근 대화 히스토리를 컨텍스트에 추가
+        conversation_context = ""
+        if recent_conversation and len(recent_conversation) > 0:
+            conversation_items = recent_conversation[:5]  # 최근 5개만
+            conversation_context = "\n".join([f"- {item}" for item in conversation_items])
+            conversation_context = f"RECENT CONVERSATION:\n{conversation_context}\n"
+        
         full_context = f"""PERSONA:
 {persona_context}
 
@@ -372,7 +409,7 @@ WORLD:
 
 {memory_context}
 
-CURRENT OBSERVATION:
+{conversation_context}CURRENT OBSERVATION:
 {observation_summary}
 
 {f'REFLECTION: {reflection_summary}' if reflection_summary else ''}
@@ -421,12 +458,32 @@ CURRENT OBSERVATION:
         }
         
         action_result = ToolDispatcher.execute_action(action, context)
-        action_result_dict = action_result.model_dump() if hasattr(action_result, 'model_dump') else {
-            'success': action_result.success,
-            'action_type': action_result.action_type,
-            'effect': action_result.effect,
-            'error': action_result.error
-        }
+        
+        # action_result_dict 생성
+        if hasattr(action_result, 'model_dump'):
+            action_result_dict = action_result.model_dump()
+        else:
+            action_result_dict = {
+                'success': action_result.success,
+                'action_type': action_result.action_type,
+                'effect': action_result.effect or {},
+                'error': action_result.error or ''
+            }
+        
+        # 실패 시 로깅 및 에러 정보 확실히 기록
+        if not action_result_dict.get('success', False):
+            error_msg = action_result_dict.get('error', '')
+            if not error_msg:
+                error_msg = f"Tool {action.action_type} execution failed without error message"
+                action_result_dict['error'] = error_msg
+            
+            logger.error(
+                f"Tool execution FAILED - "
+                f"npc_id={npc_id}, turn_id={turn_id}, "
+                f"action={action.action_type}, "
+                f"arguments={action.arguments}, "
+                f"error={error_msg}"
+            )
         
         # importance 점수 계산 (정확한 값)
         importance_score, importance_justification = ImportanceScorer.score_importance(
