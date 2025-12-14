@@ -163,27 +163,71 @@ curl "http://localhost:8000/api/v1/vector/stats"
 
 ### 3-1. PeaCoK 데이터 다운로드 및 임포트 (선택사항)
 
-PeaCoK 지식 그래프를 사용하려면:
+본 시스템은 PeaCoK(Persona Commonsense Knowledge) 지식 그래프를 통합하여 NPC의 페르소나 일관성을 향상시킨다. PeaCoK 데이터는 선택사항이며, 없이도 시스템은 정상 작동한다.
 
-**1. 데이터 다운로드:**
-- Google Drive 링크: https://drive.google.com/file/d/1ZXH-vNmS-UWdEgp6DA4WtP_2HwwWFeMb/view?usp=sharing
-- 다운로드한 파일을 `backend/data/peacok_kg.json`에 저장
+#### 데이터 다운로드
 
-**2. MongoDB에 임포트:**
-```bash
-# 스크립트는 삭제되었으므로, API를 통해 직접 임포트하거나
-# MongoDB에 직접 데이터를 삽입해야 합니다
+PeaCoK 데이터는 다음 링크에서 다운로드 가능하다:
+
+**1. 메인 PeaCoK 지식 그래프 (필수)**
+- 링크: https://drive.google.com/file/d/1ZXH-vNmS-UWdEgp6DA4WtP_2HwwWFeMb/view?usp=sharing
+- 설명: PeaCoK 논문에서 사용한 전체 지식 그래프
+- 용도: 시스템에 통합할 메인 데이터
+- 저장 위치: `backend/data/peacok/peacok_kg.json`
+
+**2. Knowledge Generation 데이터 (선택)**
+- 링크: https://drive.google.com/file/d/1iVODYzLWtWZNV_wDXxDiRSHZglcjGnV3/view?usp=sharing
+- 파일명: `data_persona_gen.zip`
+- 설명: `neural_kg_data_{train,val,test}.json` 파일 포함
+- 용도: 전처리된 실험용 데이터
+
+**3. 생성된 Attributes (선택)**
+- 링크: https://drive.google.com/file/d/15ybkMlet2ZsjRUxMJyxECSSr2cg_Pdff/view?usp=sharing
+- 파일명: `generated_tails.zip`
+- 설명: Comet-BART, GPT-3 등이 생성한 추가 tails
+- 용도: 참고용 데이터
+
+#### 파일 저장 위치
+
+다운로드한 파일은 다음 위치에 저장한다:
+
+```
+thesis_2025-2/
+└── backend/
+    └── data/
+        └── peacok/
+            ├── peacok_kg.json          # 메인 지식 그래프
+            └── neural_kg_data_train.json  # 선택사항
 ```
 
-**3. FAISS 인덱스 초기화:**
+#### 데이터 형식 확인
+
+다운로드한 파일의 형식을 확인한다:
+
+```python
+import json
+
+# 파일 열어보기
+with open('backend/data/peacok/peacok_kg.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+    print(f"Type: {type(data)}")
+    print(f"Length: {len(data) if isinstance(data, list) else 'N/A'}")
+    print(f"Sample (first 3): {data[:3] if isinstance(data, list) else list(data.items())[:3]}")
+```
+
+#### MongoDB 임포트
+
+다운로드한 PeaCoK 데이터를 MongoDB에 임포트한다. API를 통해 직접 임포트하거나 MongoDB에 직접 데이터를 삽입한다.
+
+#### FAISS 인덱스 초기화
+
+MongoDB에 저장된 데이터를 FAISS 벡터 인덱스로 인덱싱한다:
+
 ```bash
-# 벡터 인덱스 재구성 (MongoDB의 데이터를 FAISS로 인덱싱)
 curl -X POST "http://localhost:8000/api/v1/vector/reindex?index_type=episodic"
 curl -X POST "http://localhost:8000/api/v1/vector/reindex?index_type=persona"
 curl -X POST "http://localhost:8000/api/v1/vector/reindex?index_type=world"
 ```
-
-**참고:** PeaCoK 없이도 시스템은 정상 작동한다. PeaCoK를 사용하면 NPC의 페르소나 일관성이 향상된다.
 
 ### 4. 서버 실행
 
@@ -291,13 +335,6 @@ frontend/
 - `PUT /api/v1/persona/{persona_id}` - 페르소나 수정
 - `POST /api/v1/vector/reindex` - 벡터 인덱스 재구성
 
-### PeaCoK 데이터 다운로드
-
-PeaCoK 지식 그래프 데이터는 다음 링크에서 다운로드 가능:
-- **Google Drive 링크**: https://drive.google.com/file/d/1ZXH-vNmS-UWdEgp6DA4WtP_2HwwWFeMb/view?usp=sharing
-- 다운로드한 파일을 `backend/data/peacok_kg.json`에 저장
-
-자세한 내용은 루트 폴더의 `PEACOK_DOWNLOAD_GUIDE.md`를 참고하세요.
 
 전체 API 문서는 `http://localhost:8000/docs`에서 확인 가능.
 
